@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a1d">
+  <title>Emberfall — Kingdoms at War</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --ink: #e9e4d7;
+      --muted: #9ca39b;
+      --panel: #1b2628;
+      --panel-light: #253234;
+      --line: #394646;
+      --gold: #e6bb69;
+      --ember: #e87552;
+      --green: #83aa7c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 48% -15%, #35483f 0, transparent 48%),
+        #111a1d;
+      font-family: "DM Sans", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    .shell { max-width: 1280px; margin: auto; padding: 28px 32px 32px; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid #ffffff19;
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 1px solid #e6bb695b;
+      border-radius: 12px;
+      color: var(--gold);
+      background: #e6bb6910;
+      font-size: 23px;
+    }
+    .eyebrow, .label, .stat-label, .unit-type, .turn-count {
+      font-family: "DM Mono", monospace;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .eyebrow { color: var(--gold); font-size: 10px; }
+    h1 { margin: 2px 0 0; font: 700 25px "Playfair Display", serif; letter-spacing: .01em; }
+    .top-stats { display: flex; align-items: center; gap: 28px; }
+    .stat { display: grid; gap: 3px; }
+    .stat-label { color: var(--muted); font-size: 9px; }
+    .stat-value { font-size: 16px; font-weight: 700; }
+    .gold-value { color: var(--gold); }
+
+    .game-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 286px;
+      gap: 22px;
+      margin-top: 24px;
+      align-items: start;
+    }
+    .board-panel, .side-panel {
+      border: 1px solid #ffffff16;
+      border-radius: 16px;
+      background: #192325d9;
+      box-shadow: 0 18px 55px #00000024;
+    }
+    .board-panel { padding: 18px; }
+    .board-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .board-heading h2 {
+      margin: 0;
+      font: 600 17px "Playfair Display", serif;
+    }
+    .turn-count { color: var(--muted); font-size: 10px; }
+    .map-frame {
+      overflow: auto;
+      border: 1px solid #ffffff12;
+      border-radius: 10px;
+      background: #10191a;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(48px, 1fr));
+      min-width: 510px;
+      gap: 3px;
+      padding: 8px;
+    }
+    .tile {
+      position: relative;
+      display: grid;
+      min-height: 63px;
+      place-items: center;
+      padding: 3px;
+      border: 1px solid #ffffff0a;
+      border-radius: 6px;
+      color: #e9e4d7;
+      background: #32423b;
+      cursor: pointer;
+      transition: filter .15s, transform .15s, outline-color .15s;
+    }
+    .tile:hover { filter: brightness(1.2); z-index: 1; }
+    .tile:focus-visible { outline: 2px solid white; z-index: 2; }
+    .tile.forest { background: #253c34; }
+    .tile.hill { background: #555044; }
+    .tile.water { background: #233d49; }
+    .tile.plains { background: #3a4938; }
+    .tile.ruins { background: #4a3f39; }
+    .tile.reachable { outline: 2px solid #e6bb69b8; outline-offset: -2px; }
+    .tile.attackable { outline: 2px solid #ed795d; outline-offset: -2px; }
+    .tile.selected { box-shadow: inset 0 0 0 3px #f4d38a; }
+    .tile.keep-player { background: linear-gradient(145deg, #5a4831, #344039); }
+    .tile.keep-enemy { background: linear-gradient(145deg, #55382f, #383633); }
+    .terrain-icon { opacity: .46; font-size: 15px; }
+    .tile.keep-player .terrain-icon, .tile.keep-enemy .terrain-icon { opacity: .82; }
+    .unit {
+      position: absolute;
+      display: grid;
+      width: 35px;
+      height: 35px;
+      place-items: center;
+      border: 2px solid #e4d8bd;
+      border-radius: 50%;
+      background: #47664e;
+      box-shadow: 0 3px 8px #0009;
+      font-size: 17px;
+      z-index: 1;
+    }
+    .unit.enemy { border-color: #f0c3ad; background: #814538; }
+    .unit.spent { filter: saturate(.35); opacity: .75; }
+    .health {
+      position: absolute;
+      right: -3px;
+      bottom: -3px;
+      padding: 1px 3px;
+      border: 1px solid #d6cbb7;
+      border-radius: 5px;
+      color: #fff;
+      background: #17201e;
+      font: 9px "DM Mono", monospace;
+    }
+    .tile-name {
+      position: absolute;
+      left: 5px;
+      bottom: 4px;
+      color: #ffffff70;
+      font: 8px "DM Mono", monospace;
+      text-transform: uppercase;
+    }
+
+    .map-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding: 13px 4px 1px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: #80a779; }
+    .legend-dot.enemy-dot { background: #dc775b; }
+    .legend-dot.target-dot { border: 1px solid var(--gold); background: transparent; }
+    .side-panel { padding: 18px; }
+    .section + .section { margin-top: 20px; padding-top: 18px; border-top: 1px solid #ffffff14; }
+    .label { margin: 0 0 12px; color: var(--muted); font-size: 9px; }
+    .status-card {
+      padding: 12px;
+      border: 1px solid #ffffff12;
+      border-radius: 9px;
+      background: #ffffff06;
+    }
+    .status-title { margin: 0 0 5px; font-weight: 700; font-size: 13px; }
+    .status-copy { margin: 0; color: #b2b9b0; font-size: 11px; line-height: 1.55; }
+    .selected-card { min-height: 72px; }
+    .unit-card-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; }
+    .unit-type { margin: 0; color: var(--muted); font-size: 9px; }
+    .unit-stats { display: flex; gap: 13px; margin-top: 10px; color: #d7d4ca; font-size: 10px; }
+    .unit-stats b { color: var(--gold); }
+    .recruit-list { display: grid; gap: 8px; }
+    .recruit-btn, .end-turn, .restart-btn {
+      width: 100%;
+      border: 1px solid #ffffff1b;
+      border-radius: 8px;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .recruit-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 10px;
+      background: #ffffff07;
+      text-align: left;
+    }
+    .recruit-btn:hover:not(:disabled) { border-color: #e6bb6975; background: #e6bb6910; }
+    .recruit-btn:active:not(:disabled), .end-turn:active:not(:disabled) { transform: translateY(1px); }
+    .recruit-btn:disabled { opacity: .42; cursor: not-allowed; }
+    .recruit-name { font-size: 11px; font-weight: 700; }
+    .recruit-desc { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; font-weight: 400; }
+    .recruit-cost { color: var(--gold); font: 11px "DM Mono", monospace; }
+    .end-turn {
+      margin-top: 14px;
+      padding: 11px;
+      border-color: #e6bb69;
+      color: #211b10;
+      background: var(--gold);
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .end-turn:hover:not(:disabled) { background: #f0cd84; }
+    .end-turn:disabled { opacity: .45; cursor: not-allowed; }
+    .log { display: grid; gap: 9px; }
+    .log-entry { display: grid; grid-template-columns: 7px 1fr; gap: 7px; color: #b4b9b1; font-size: 10px; line-height: 1.45; }
+    .log-bullet { margin-top: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+    .log-entry.enemy-log .log-bullet { background: var(--ember); }
+    .help { margin: 12px 0 0; color: #89938e; font-size: 10px; line-height: 1.55; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: #0b1110c9;
+      backdrop-filter: blur(5px);
+    }
+    .overlay.visible { display: grid; }
+    .result-card {
+      width: min(390px, 100%);
+      padding: 30px;
+      border: 1px solid #e6bb6955;
+      border-radius: 16px;
+      background: #1b2628;
+      text-align: center;
+      box-shadow: 0 20px 70px #0009;
+    }
+    .result-icon { font-size: 35px; }
+    .result-card h2 { margin: 10px 0 6px; font: 700 27px "Playfair Display", serif; }
+    .result-card p { margin: 0 0 20px; color: #b2b9b0; font-size: 13px; line-height: 1.6; }
+    .restart-btn { padding: 11px; border-color: #e6bb69; color: #211b10; background: var(--gold); font-weight: 700; }
+    .restart-btn:hover { background: #f0cd84; }
+
+    @media (max-width: 850px) {
+      .shell { padding: 20px 16px; }
+      .game-layout { grid-template-columns: 1fr; }
+      .side-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+      .section + .section { margin-top: 0; padding-top: 0; border-top: 0; }
+      .section.log-section, .section.actions-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #ffffff14; }
+    }
+    @media (max-width: 520px) {
+      .shell { padding: 15px 11px; }
+      header { align-items: flex-start; }
+      .top-stats { gap: 13px; }
+      .stat-value { font-size: 14px; }
+      .brand-mark { width: 38px; height: 38px; }
+      h1 { font-size: 21px; }
+      .board-panel { padding: 11px; }
+      .tile { min-height: 54px; }
+      .side-panel { display: block; }
+      .section + .section, .section.log-section, .section.actions-section {
+        margin-top: 16px; padding-top: 15px; border-top: 1px solid #ffffff14;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">♜</div>
+        <div>
+          <div class="eyebrow">A turn-based strategy game</div>
+          <h1>Emberfall</h1>
+        </div>
+      </div>
+      <div class="top-stats" aria-label="Kingdom resources">
+        <div class="stat"><span class="stat-label">Your gold</span><span class="stat-value gold-value" id="gold">12</span></div>
+        <div class="stat"><span class="stat-label">Your army</span><span class="stat-value" id="army-size">3</span></div>
+        <div class="stat"><span class="stat-label">Turn</span><span class="stat-value" id="turn-number">1</span></div>
+      </div>
+    </header>
+
+    <div class="game-layout">
+      <section class="board-panel" aria-label="Battle map">
+        <div class="board-heading">
+          <h2>The Emberfall Frontier</h2>
+          <span class="turn-count" id="phase-label">YOUR TURN</span>
+        </div>
+        <div class="map-frame">
+          <div class="board" id="board" role="grid" aria-label="9 by 7 battle map"></div>
+        </div>
+        <div class="map-legend" aria-label="Map legend">
+          <span class="legend-item"><i class="legend-dot"></i>Your army</span>
+          <span class="legend-item"><i class="legend-dot enemy-dot"></i>Enemy army</span>
+          <span class="legend-item"><i class="legend-dot target-dot"></i>Enemy stronghold</span>
+          <span>🟩 Forest grants defense</span>
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Command panel">
+        <section class="section">
+          <h3 class="label">Frontier report</h3>
+          <div class="status-card">
+            <p class="status-title" id="status-title">The border is yours to shape.</p>
+            <p class="status-copy" id="status-copy">Lead your forces east and seize the enemy keep. Choose a unit to see its orders.</p>
+          </div>
+        </section>
+        <section class="section">
+          <h3 class="label">Selected unit</h3>
+          <div class="status-card selected-card" id="selected-card">
+            <p class="status-copy">Select one of your units on the map.</p>
+          </div>
+        </section>
+        <section class="section actions-section">
+          <h3 class="label">Raise an army · <span id="gold-inline">12</span> gold</h3>
+          <div class="recruit-list">
+            <button class="recruit-btn" data-recruit="militia">
+              <span><span class="recruit-name">Militia</span><span class="recruit-desc">Steady and inexpensive</span></span>
+              <span class="recruit-cost">5g</span>
+            </button>
+            <button class="recruit-btn" data-recruit="archer">
+              <span><span class="recruit-name">Archer</span><span class="recruit-desc">Ranged attack · 2 tiles</span></span>
+              <span class="recruit-cost">7g</span>
+            </button>
+            <button class="recruit-btn" data-recruit="knight">
+              <span><span class="recruit-name">Knight</span><span class="recruit-desc">Fast and heavily armored</span></span>
+              <span class="recruit-cost">9g</span>
+            </button>
+          </div>
+          <p class="help">Recruit at your keep. End your turn to earn 3 gold and let the enemy move.</p>
+          <button class="end-turn" id="end-turn">End your turn&nbsp; →</button>
+        </section>
+        <section class="section log-section">
+          <h3 class="label">Dispatches</h3>
+          <div class="log" id="log" aria-live="polite"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <div class="overlay" id="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
+    <div class="result-card">
+      <div class="result-icon" id="result-icon">🏰</div>
+      <h2 id="result-title">Victory</h2>
+      <p id="result-copy"></p>
+      <button class="restart-btn" id="restart">Play again</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const WIDTH = 9;
+      const HEIGHT = 7;
+      const COSTS = { militia: 5, archer: 7, knight: 9 };
+      const UNIT_INFO = {
+        militia: { name: "Militia", icon: "⚔", hp: 3, attack: 1, move: 2, range: 1, type: "INFANTRY" },
+        archer: { name: "Archer", icon: "🏹", hp: 2, attack: 1, move: 2, range: 2, type: "RANGED" },
+        knight: { name: "Knight", icon: "♞", hp: 4, attack: 2, move: 3, range: 1, type: "CAVALRY" }
+      };
+      const TERRAIN_ICONS = { plains: "·", forest: "♣", hill: "▲", water: "≈", ruins: "⌂" };
+      const TERRAIN_NAMES = { plains: "Plains", forest: "Forest", hill: "Hill", water: "Water", ruins: "Ruins" };
+      const terrainRows = [
+        ["plains", "forest", "plains", "plains", "hill", "plains", "forest", "plains", "plains"],
+        ["plains", "plains", "forest", "plains", "plains", "plains", "plains", "hill", "plains"],
+        ["forest", "plains", "plains", "water", "plains", "forest", "plains", "plains", "forest"],
+        ["plains", "hill", "plains", "plains", "ruins", "plains", "plains", "hill", "plains"],
+        ["forest", "plains", "plains", "forest", "plains", "water", "plains", "plains", "forest"],
+        ["plains", "plains", "hill", "plains", "plains", "plains", "forest", "plains", "plains"],
+        ["plains", "forest", "plains", "plains", "hill", "plains", "plains", "forest", "plains"]
+      ];
+
+      const boardElement = document.getElementById("board");
+      const logElement = document.getElementById("log");
+      let state;
+      let nextUnitId = 1;
+
+      function createUnit(side, type, x, y) {
+        return { id: nextUnitId++, side, type, x, y, hp: UNIT_INFO[type].hp, moved: false };
+      }
+
+      function newGame() {
+        nextUnitId = 1;
+        state = {
+          gold: 12,
+          turn: 1,
+          active: true,
+          selectedId: null,
+          moveTargets: [],
+          attackTargets: [],
+          units: [
+            createUnit("player", "knight", 1, 3),
+            createUnit("player", "archer", 2, 2),
+            createUnit("player", "militia", 2, 4),
+            createUnit("enemy", "knight", 7, 3),
+            createUnit("enemy", "archer", 6, 2),
+            createUnit("enemy", "militia", 6, 4)
+          ],
+          messages: [{ text: "The frontier awaits your command.", enemy: false }]
+        };
+        document.getElementById("result-overlay").classList.remove("visible");
+        setStatus("The border is yours to shape.", "Lead your forces east and seize the enemy keep. Choose a unit to see its orders.");
+        render();
+      }
+
+      function unitAt(x, y) {
+        return state.units.find(unit => unit.x === x && unit.y === y);
+      }
+
+      function tileAt(x, y) {
+        return terrainRows[y][x];
+      }
+
+      function isKeep(x, y) {
+        return (x === 0 && y === 3) || (x === WIDTH - 1 && y === 3);
+      }
+
+      function canEnter(x, y) {
+        return x >= 0 && y >= 0 && x < WIDTH && y < HEIGHT && tileAt(x, y) !== "water";
+      }
+
+      function distance(a, b) {
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      }
+
+      function getAttackTargets(unit) {
+        return state.units.filter(other =>
+          other.side !== unit.side &&
+          distance(unit, other) <= UNIT_INFO[unit.type].range &&
+          (unit.type !== "archer" || unit.x === other.x || unit.y === other.y)
+        ).map(other => `${other.x},${other.y}`);
+      }
+
+      function getMoveTargets(unit) {
+        const maxMove = UNIT_INFO[unit.type].move;
+        const queue = [{ x: unit.x, y: unit.y, steps: 0 }];
+        const visited = new Set([`${unit.x},${unit.y}`]);
+        const targets = [];
+        while (queue.length) {
+          const current = queue.shift();
+          if (current.steps >= maxMove) continue;
+          for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+            const x = current.x + dx;
+            const y = current.y + dy;
+            const key = `${x},${y}`;
+            if (!canEnter(x, y) || visited.has(key)) continue;
+            visited.add(key);
+            if (unitAt(x, y)) continue;
+            targets.push(key);
+            queue.push({ x, y, steps: current.steps + 1 });
+          }
+        }
+        return targets;
+      }
+
+      function selectUnit(unit) {
+        if (!unit || unit.side !== "player" || !state.active) return;
+        state.selectedId = unit.id;
+        state.moveTargets = unit.moved ? [] : getMoveTargets(unit);
+        state.attackTargets = getAttackTargets(unit);
+        updateSelectedCard(unit);
+        const actionText = unit.moved
+          ? "This unit has already acted. You can still attack if an enemy is in range."
+          : "Choose a highlighted tile to move, or click a highlighted enemy to attack.";
+        setStatus(`${UNIT_INFO[unit.type].name} selected`, actionText);
+        render();
+      }
+
+      function handleTileClick(x, y) {
+        if (!state.active) return;
+        const clicked = unitAt(x, y);
+        const selected = state.units.find(unit => unit.id === state.selectedId);
+
+        if (clicked && clicked.side === "player") {
+          selectUnit(clicked);
+          return;
+        }
+        if (selected && clicked && clicked.side === "enemy" && state.attackTargets.includes(`${x},${y}`)) {
+          attack(selected, clicked);
+          return;
+        }
+        if (selected && !selected.moved && state.moveTargets.includes(`${x},${y}`)) {
+          selected.x = x;
+          selected.y = y;
+          selected.moved = true;
+          state.moveTargets = [];
+          state.attackTargets = getAttackTargets(selected);
+          if (x === WIDTH - 1 && y === 3) {
+            finishGame(true);
+            return;
+          }
+          setStatus("Orders carried out", `${UNIT_INFO[selected.type].name} moved. You may still attack with this unit.`);
+          updateSelectedCard(selected);
+          render();
+          return;
+        }
+        state.selectedId = null;
+        state.moveTargets = [];
+        state.attackTargets = [];
+        document.getElementById("selected-card").innerHTML = '<p class="status-copy">Select one of your units on the map.</p>';
+        render();
+      }
+
+      function attack(attacker, defender) {
+        const terrainBonus = tileAt(defender.x, defender.y) === "forest" || tileAt(defender.x, defender.y) === "hill" ? 1 : 0;
+        const damage = Math.max(1, UNIT_INFO[attacker.type].attack - terrainBonus);
+        defender.hp -= damage;
+        attacker.moved = true;
+        addMessage(`${UNIT_INFO[attacker.type].name} dealt ${damage} damage to the enemy ${UNIT_INFO[defender.type].name}.`, attacker.side === "enemy");
+        if (defender.hp <= 0) {
+          state.units = state.units.filter(unit => unit.id !== defender.id);
+          addMessage(`Enemy ${UNIT_INFO[defender.type].name} defeated.`, attacker.side === "enemy");
+        }
+        if (attacker.side === "player") {
+          state.attackTargets = getAttackTargets(attacker);
+          state.moveTargets = [];
+          updateSelectedCard(attacker);
+          setStatus("A strike lands", defender.hp <= 0 ? "The enemy has lost a soldier. Keep pressing toward their stronghold." : `The enemy ${UNIT_INFO[defender.type].name} holds on with ${Math.max(0, defender.hp)} health.`);
+        }
+        render();
+      }
+
+      function endPlayerTurn() {
+        if (!state.active) return;
+        state.active = false;
+        state.selectedId = null;
+        state.gold += 3;
+        state.turn += 1;
+        state.units.filter(unit => unit.side === "enemy").forEach(unit => { unit.moved = false; });
+        setStatus("The enemy advances…", "Your scouts report movement along the frontier.");
+        render();
+        window.setTimeout(enemyTurn, 420);
+      }
+
+      function enemyTurn() {
+        for (const enemy of state.units.filter(unit => unit.side === "enemy")) {
+          if (!state.units.includes(enemy)) continue;
+          let target = findEnemyTarget(enemy);
+          if (target) {
+            attack(enemy, target);
+            continue;
+          }
+
+          const destinations = getMoveTargets(enemy).map(key => {
+            const [x, y] = key.split(",").map(Number);
+            return { x, y };
+          });
+          const players = state.units.filter(unit => unit.side === "player");
+          const destination = destinations
+            .map(tile => ({
+              ...tile,
+              score: players.length
+                ? Math.min(...players.map(player => Math.abs(tile.x - player.x) + Math.abs(tile.y - player.y)))
+                : Math.abs(tile.x) + Math.abs(tile.y - 3)
+            }))
+            .sort((a, b) => a.score - b.score)[0];
+          if (destination) {
+            enemy.x = destination.x;
+            enemy.y = destination.y;
+            enemy.moved = true;
+            target = findEnemyTarget(enemy);
+            if (target) attack(enemy, target);
+          }
+        }
+
+        if (!state.units.some(unit => unit.side === "player")) {
+          finishGame(false);
+          return;
+        }
+        state.units.filter(unit => unit.side === "player").forEach(unit => { unit.moved = false; });
+        state.active = true;
+        state.selectedId = null;
+        state.moveTargets = [];
+        state.attackTargets = [];
+        addMessage("Your forces are ready for a new turn.", false);
+        setStatus("Your turn", "Your troops have regrouped. Recruit reinforcements or advance toward the enemy keep.");
+        render();
+      }
+
+      function findEnemyTarget(enemy) {
+        return state.units
+          .filter(unit => unit.side === "player" &&
+            distance(enemy, unit) <= UNIT_INFO[enemy.type].range &&
+            (enemy.type !== "archer" || enemy.x === unit.x || enemy.y === unit.y))
+          .sort((a, b) => a.hp - b.hp)[0];
+      }
+
+      function recruit(type) {
+        const cost = COSTS[type];
+        if (!state.active || state.gold < cost || state.units.filter(unit => unit.side === "player").length >= 12) return;
+        const spawn = [[1, 3], [0, 2], [0, 4], [1, 2], [1, 4], [2, 3]]
+          .find(([x, y]) => !unitAt(x, y) && canEnter(x, y));
+        if (!spawn) {
+          setStatus("Keep is crowded", "Move a unit away from your keep before recruiting another soldier.");
+          return;
+        }
+        state.gold -= cost;
+        state.units.push(createUnit("player", type, spawn[0], spawn[1]));
+        addMessage(`${UNIT_INFO[type].name} joined your army for ${cost} gold.`, false);
+        setStatus("Reinforcements raised", `${UNIT_INFO[type].name} is ready at your keep. Select them to issue orders.`);
+        render();
+      }
+
+      function finishGame(won) {
+        state.active = false;
+        state.selectedId = null;
+        document.getElementById("result-icon").textContent = won ? "🏆" : "🏰";
+        document.getElementById("result-title").textContent = won ? "The keep is yours!" : "Your kingdom has fallen";
+        document.getElementById("result-copy").textContent = won
+          ? `You captured the enemy stronghold in ${state.turn} turns. The frontier will remember your name.`
+          : "Your forces have been routed. Gather your strength and try a different strategy.";
+        document.getElementById("result-overlay").classList.add("visible");
+        render();
+      }
+
+      function addMessage(text, enemy) {
+        state.messages.unshift({ text, enemy });
+        state.messages = state.messages.slice(0, 5);
+      }
+
+      function setStatus(title, copy) {
+        document.getElementById("status-title").textContent = title;
+        document.getElementById("status-copy").textContent = copy;
+      }
+
+      function updateSelectedCard(unit) {
+        const info = UNIT_INFO[unit.type];
+        document.getElementById("selected-card").innerHTML = `
+          <p class="unit-card-title">${info.icon} ${info.name}</p>
+          <p class="unit-type">${info.type}${unit.moved ? " · ACTED" : " · READY"}</p>
+          <div class="unit-stats"><span>Health <b>${unit.hp}/${info.hp}</b></span><span>Attack <b>${info.attack}</b></span><span>Move <b>${info.move}</b></span></div>`;
+      }
+
+      function render() {
+        boardElement.innerHTML = "";
+        for (let y = 0; y < HEIGHT; y++) {
+          for (let x = 0; x < WIDTH; x++) {
+            const tile = document.createElement("button");
+            const terrain = tileAt(x, y);
+            const unit = unitAt(x, y);
+            const key = `${x},${y}`;
+            tile.type = "button";
+            tile.className = `tile ${terrain}`;
+            if (x === 0 && y === 3) tile.classList.add("keep-player");
+            if (x === WIDTH - 1 && y === 3) tile.classList.add("keep-enemy");
+            if (state.moveTargets.includes(key)) tile.classList.add("reachable");
+            if (state.attackTargets.includes(key)) tile.classList.add("attackable");
+            if (unit && unit.id === state.selectedId) tile.classList.add("selected");
+            tile.setAttribute("role", "gridcell");
+            tile.setAttribute("aria-label", `${TERRAIN_NAMES[terrain]}${isKeep(x, y) ? (x === 0 ? ", your keep" : ", enemy keep") : ""}${unit ? `, ${unit.side} ${UNIT_INFO[unit.type].name}, ${unit.hp} health` : ""}`);
+            tile.innerHTML = `<span class="terrain-icon" aria-hidden="true">${x === 0 && y === 3 ? "♜" : x === WIDTH - 1 && y === 3 ? "♜" : TERRAIN_ICONS[terrain]}</span>
+              ${unit ? `<span class="unit ${unit.side === "enemy" ? "enemy" : ""} ${unit.moved ? "spent" : ""}" aria-hidden="true">${UNIT_INFO[unit.type].icon}<span class="health">${unit.hp}</span></span>` : ""}
+              ${isKeep(x, y) && !unit ? `<span class="tile-name">${x === 0 ? "Home" : "Keep"}</span>` : ""}`;
+            tile.addEventListener("click", () => handleTileClick(x, y));
+            boardElement.appendChild(tile);
+          }
+        }
+        document.getElementById("gold").textContent = state.gold;
+        document.getElementById("gold-inline").textContent = state.gold;
+        document.getElementById("army-size").textContent = state.units.filter(unit => unit.side === "player").length;
+        document.getElementById("turn-number").textContent = state.turn;
+        document.getElementById("phase-label").textContent = state.active ? "YOUR TURN" : "ENEMY TURN";
+        document.getElementById("end-turn").disabled = !state.active;
+        document.querySelectorAll("[data-recruit]").forEach(button => {
+          button.disabled = !state.active || state.gold < COSTS[button.dataset.recruit] ||
+            state.units.filter(unit => unit.side === "player").length >= 12;
+        });
+        logElement.innerHTML = state.messages.map(message =>
+          `<div class="log-entry ${message.enemy ? "enemy-log" : ""}"><span class="log-bullet"></span><span>${message.text}</span></div>`
+        ).join("");
+      }
+
+      document.getElementById("end-turn").addEventListener("click", endPlayerTurn);
+      document.querySelectorAll("[data-recruit]").forEach(button => {
+        button.addEventListener("click", () => recruit(button.dataset.recruit));
+      });
+      document.getElementById("restart").addEventListener("click", newGame);
+      newGame();
+    })();
+  </script>
+</body>
+</html>
